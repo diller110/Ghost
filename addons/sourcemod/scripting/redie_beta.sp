@@ -2,12 +2,13 @@
 #include <cstrike>
 #include <sdktools>
 #include <sdkhooks>
+#include <skynetjailbreak>
 
 #pragma newdecls required
 #pragma semicolon 1
 
-#define CHAT_PREFIX " \x02[\x01Ghost\x02]\x01" 
-#define CHAT_COLOR "\x01"
+#define CHAT_PREFIX " \x0C➤➤➤\x0B"
+#define CHAT_COLOR "\x0B"
 #define CHAT_ACCENT "\x0F"
 
 EngineVersion g_Game;
@@ -93,7 +94,7 @@ public void OnPluginStart()
 // Natives
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
-	CreateNative("Ghost_IsGhost", Native_IsGhost);
+	CreateNative("Redie_IsGhost", Native_IsGhost);
 	return APLRes_Success;
 }
 
@@ -249,6 +250,21 @@ public Action CMD_GhostMenu(int client, int args)
 }
 
 // Events
+public Action SNGJailbreak_OnDayStart(int client, int dayIndex)
+{
+	// Disable bhop + speed on days so Redie does not interfere with alive players.
+	g_cGhostBhop.BoolValue = false;
+	g_cGhostSpeed.BoolValue = false;
+	return Plugin_Continue;
+}
+
+public void SNGJailbreak_OnDayEnd(int dayIndex)
+{
+	// Re enable bhop + speed for players in Redie after a day ends.
+	g_cGhostBhop.BoolValue = true;
+	g_cGhostSpeed.BoolValue = true;
+}
+
 public Action Event_PrePlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
 	int userid = event.GetInt("userid");

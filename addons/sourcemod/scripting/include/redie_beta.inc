@@ -1,7 +1,7 @@
-#if defined _ghost_included_
+#if defined _redie_included_
   #endinput
 #endif
-#define _ghost_included_
+#define _redie_included_
  
 /**
  * Returns if player is currently a Ghost
@@ -9,4 +9,4 @@
  * @param client 		The client index
  * @return 		True if player is a Ghost, false otherwise.
  */
-native bool Ghost_IsGhost(int client);
+native bool Redie_IsGhost(int client);
