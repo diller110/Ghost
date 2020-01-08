@@ -460,6 +460,13 @@ public Action FakeTriggerTeleport(int entity, int client)
 // Auto bhop / Unlimited Speed
 public Action Hook_PreThink(int client)
 {
+	if (GameRules_GetProp("m_bWarmupPeriod"))
+	{
+		SetConVarBool(sv_autobunnyhopping, true);
+		SetConVarBool(sv_enablebunnyhopping, true);
+		return Plugin_Continue;
+	}
+
 	if (g_cGhostBhop.BoolValue)
 	{
 		if (!g_bBhopEnabled[client])
