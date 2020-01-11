@@ -42,7 +42,7 @@ public Plugin myinfo =
 	name = "Ghost", 
 	author = "Extacy", 
 	description = "Improved Redie.", 
-	version = "1.0", 
+	version = "1.0.1", 
 	url = "https://steamcommunity.com/profiles/76561198183032322"
 };
 
@@ -63,8 +63,6 @@ public void OnPluginStart()
 	
 	sv_autobunnyhopping = FindConVar("sv_autobunnyhopping");
 	sv_enablebunnyhopping = FindConVar("sv_enablebunnyhopping");
-	SetConVarFlags(sv_autobunnyhopping, GetConVarFlags(sv_autobunnyhopping) & ~FCVAR_REPLICATED);
-	SetConVarFlags(sv_enablebunnyhopping, GetConVarFlags(sv_enablebunnyhopping) & ~FCVAR_REPLICATED);
 	
 	LoadTranslations("common.phrases.txt");
 	
@@ -95,6 +93,14 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 {
 	CreateNative("Ghost_IsGhost", Native_IsGhost);
 	return APLRes_Success;
+}
+
+public void OnConfigsExecuted()
+{
+	if (g_cGhostBhop.BoolValue)
+		SetConVarFlags(sv_autobunnyhopping, GetConVarFlags(sv_autobunnyhopping) & ~FCVAR_REPLICATED);
+	if (g_cGhostSpeed.BoolValue)
+		SetConVarFlags(sv_enablebunnyhopping, GetConVarFlags(sv_enablebunnyhopping) & ~FCVAR_REPLICATED);
 }
 
 public int Native_IsGhost(Handle plugin, int numParams)
