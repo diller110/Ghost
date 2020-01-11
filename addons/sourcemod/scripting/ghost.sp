@@ -21,6 +21,7 @@ ConVar sv_enablebunnyhopping;
 
 // Plugin Variables
 bool g_bIsGhost[MAXPLAYERS + 1]; // Current players that are a Ghost
+bool g_bTakeWeapons[MAXPLAYERS + 1]; // Allow take weapons or not 
 bool g_bBlockSounds[MAXPLAYERS + 1]; // Clients that cannot make sounds (this is used because g_bIsGhost must be set to false when respawning player.)
 bool g_bBhopEnabled[MAXPLAYERS + 1]; // Ghosts that have Bhop Enabled.
 bool g_bSpeedEnabled[MAXPLAYERS + 1]; // Ghosts with unlimited speed enabled (sv_enablebunnyhopping)
@@ -119,6 +120,7 @@ public void OnClientPutInServer(int client)
 	{
 		g_iLastUsedCommand[client] = 0;
 		g_bIsGhost[client] = false;
+		g_bTakeWeapons[client] = true;
 		g_bBlockSounds[client] = false;
 		g_bBhopEnabled[client] = false;
 		g_bSpeedEnabled[client] = false;
@@ -306,6 +308,7 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 	if (IsValidClient(client))
 	{
 		g_bIsGhost[client] = false;
+		g_bTakeWeapons[client] = true;
 		g_bBlockSounds[client] = false;
 		g_bBhopEnabled[client] = false;
 		g_bSpeedEnabled[client] = false;
@@ -369,6 +372,7 @@ public Action Event_PreRoundEnd(Event event, const char[] name, bool dontBroadca
 		if (g_bIsGhost[i] && IsValidClient(i))
 		{
 			g_bIsGhost[i] = false;
+			g_bTakeWeapons[i] = false;
 		}
 	}
 }
@@ -495,7 +499,7 @@ public Action Hook_PreThink(int client)
 // Disable weapons for ghosts
 public Action Hook_WeaponCanUse(int client, int weapon)
 {
-	if (g_bIsGhost[client])
+	if (g_bIsGhost[client] || !g_bTakeWeapons[client])
 		return Plugin_Handled;
 	
 	return Plugin_Continue;
