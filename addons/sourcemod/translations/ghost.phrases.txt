@@ -1,0 +1,128 @@
+"Phrases"
+{
+	"Tag"
+	{
+		"en"	"{LIGHTRED}[{DEFAULT}Ghost{LIGHTRED}]{DEFAULT}"
+		"ru"	"{LIGHTRED}[{DEFAULT}!ghost{LIGHTRED}]{DEFAULT}"
+	}
+	"Title"
+	{
+		"en"	"Ghost"
+		"ru"	"Призрак"
+	}
+	"PluginDisabled"
+	{
+		"en"	"{LIGHTRED}Ghost{DEFAULT} has been temporarily disabled on this server."
+		"ru"	"{LIGHTRED}Призрак{DEFAULT} был временно отключён на сервере."
+	}
+	"WaitRoundBegin"
+	{
+		"en"	"Please wait for the round to begin."
+		"ru"	"Пожалуйста дождитесь начала раунда."
+	}
+	"WaitRoundWarmup"
+	{
+		"en"	"{LIGHTRED}Ghost{DEFAULT} is disabled during warmup."
+		"ru"	"{LIGHTRED}Призрак{DEFAULT} отключён во время разминки."
+	}
+	"MustBeValid"
+	{
+		"en"	"You must be a valid client in order to use {LIGHTRED}Ghost{DEFAULT}."
+		"ru"	"Использовать {LIGHTRED}Призрака{DEFAULT} могут только игроки."
+	}
+	"MustBeDead"
+	{
+		"en"	"You must be dead in order to use {LIGHTRED}Ghost{DEFAULT}."
+		"ru"	"Вы должны быть мертвы, чтобы использовать {LIGHTRED}Призрака{DEFAULT}."
+	}
+	"MustBeGhost"
+	{
+		"en"	"You must be a {LIGHTRED}Ghost{DEFAULT} to use this command."
+		"ru"	"Чтобы использовать эту команду, нужно быть {LIGHTRED}Призраком{DEFAULT}."
+	}
+	"TooManyCommands"
+	{
+		"#format"	"{1:i}"
+		"en"	"Too many commands issued! Please wait {LIGHTRED}%i seconds{DEFAULT} before using that command again."
+		"ru"	"Слишком частое использование команд. Подождите {LIGHTRED}%i сек.{DEFAULT} перед вводом следующей."
+	}
+	"TypeGhostToRespawn"
+	{
+		"en"	"Type {LIGHTRED}/ghost{DEFAULT} to respawn as a ghost!"
+		"ru"	"Введите {LIGHTRED}/ghost{DEFAULT}, чтобы стать призраком!"
+	}
+	"Advert"
+	{
+		"en"	"This server is running {LIGHTRED}Ghost{DEFAULT}! Type {LIGHTRED}/ghost{DEFAULT}."
+		"ru"	"На этом сервере можно становиться {LIGHTRED}Призраком{DEFAULT}! Введите {LIGHTRED}/ghost{DEFAULT}."
+	}
+	"RespawnForTouching"
+	{
+		"#format"	"{1:s}"
+		"en"	"You were respawned for touching a {LIGHTRED}{1:s}{DEFAULT}."
+		"ru"	"Вы были воскрешены за касание {LIGHTRED}{1:s}{DEFAULT}."
+	}
+	"RespawnedAsGhost"
+	{
+		"en"	"Respawned as a {LIGHTRED}ghost{DEFAULT}."
+		"ru"	"Превращён в {LIGHTRED}призрака{DEFAULT}."
+	}
+	"ReturnedToSpectator"
+	{
+		"en"	"Returned to {LIGHTRED}spectator{DEFAULT}."
+		"ru"	"Возвращён в {LIGHTRED}наблюдатели{DEFAULT}."
+	}
+	"LocationSaved"
+	{
+		"en"	"Saved Location!"
+		"en"	"Точка сохранена!"
+	}
+	"SaveLocationFirst"
+	{
+		"en"	"Save a location first!"
+		"en"	"Сперва сохраните точку!"
+	}
+	"TeleportedToSavedLocation"
+	{
+		"en"	"Teleported to your saved location!"
+		"ru"	"Телепортировали вас к сохранённой точке!"
+	}
+	"DisabledNoclip"
+	{
+		"en"	"Disabled {LIGHTRED}Noclip{DEFAULT}!"
+		"ru"	"Отключён {LIGHTRED}Noclip{DEFAULT}!"
+	}
+	"EnabledNoclip"
+	{
+		"en"	"Enabled {LIGHTRED}Noclip{DEFAULT}!"
+		"ru"	"Включен {LIGHTRED}Noclip{DEFAULT}!"
+	}
+	"DisabledBhop"
+	{
+		"en"	"Disabled {LIGHTRED}Bhop{DEFAULT}!"
+		"ru"	"Отключён {LIGHTRED}Bhop{DEFAULT}!"
+	}
+	"EnabledBhop"
+	{
+		"en"	"Enabled {LIGHTRED}Bhop{DEFAULT}!"
+		"ru"	"Включен {LIGHTRED}Bhop{DEFAULT}!"
+	}
+	"DisabledSpeed"
+	{
+		"en"	"Disabled {LIGHTRED}Unlimited Speed{DEFAULT}!"
+	}
+	"EnabledSpeed"
+	{
+		"en"	"Enabled {LIGHTRED}Unlimited Speed{DEFAULT}!"
+	}
+	"Checkpoint"
+	{
+		"en"	"Checkpoint"
+		"ru"	"Чекпоинт"
+	}
+	"Teleport"
+	{
+		"en"	"Teleport"
+		"ru"	"Телепортироваться"
+	}
+}
