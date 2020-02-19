@@ -67,7 +67,7 @@ public void OnPluginStart()
 	HookEntityOutput("func_door_rotating", "OnBlockedClosing", OnDoorBlocked);
 
 	HookUserMessage(GetUserMessageId("TextMsg"), RemoveCashRewardMessage, true);
-		
+	
 	AddNormalSoundHook(OnNormalSoundPlayed);
 	
 	CreateTimer(g_cChatAdvertsInterval.FloatValue, Timer_ChatAdvert, _, TIMER_REPEAT);
@@ -244,6 +244,7 @@ public Action Event_PrePlayerDeath(Event event, const char[] name, bool dontBroa
 		g_bBhopEnabled[client] = false;
 		g_bSpeedEnabled[client] = false;
 		g_bNoclipEnabled[client] = false;
+
 		CreateTimer(1.0, Timer_ResetValue, userid);
 		
 		int ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
@@ -254,6 +255,7 @@ public Action Event_PrePlayerDeath(Event event, const char[] name, bool dontBroa
 				AcceptEntityInput(ragdoll, "Kill");
 			}
 		}
+
 		return Plugin_Handled;
 	}
 	CGOPrintToChat(client, "%t %t", "Tag", "TypeGhostToRespawn");
@@ -269,12 +271,13 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 		g_bIsGhost[client] = false;
 		g_bTakeWeapons[client] = true;
 		g_bNoclipEnabled[client] = false;
-		
+
 		if (g_cGhostSpeed.BoolValue)
 		{
 			g_bSpeedEnabled[client] = false;
 			SendConVarValue(client, sv_enablebunnyhopping, "0");
 		}
+
 		if (g_cGhostBhop.BoolValue)
 		{
 			g_bBhopEnabled[client] = false;
