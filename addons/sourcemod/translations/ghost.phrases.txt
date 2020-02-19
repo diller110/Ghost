@@ -62,6 +62,11 @@
 		"en"	"You were respawned for touching a {LIGHTRED}{1:s}{DEFAULT}."
 		"ru"	"Вы были воскрешены за касание {LIGHTRED}{1:s}{DEFAULT}."
 	}
+	"RespawnForBlockingDoor"
+	{
+		"en"	"You were respawned for {LIGHTRED}blocking{DEFAULT} a {LIGHTRED}door{DEFAULT}!"
+		"ru"	"Вы были воскрешены за блокирование {LIGHTRED}двери{DEFAULT}."
+	}
 	"RespawnedAsGhost"
 	{
 		"en"	"Respawned as a {LIGHTRED}ghost{DEFAULT}."

@@ -62,7 +62,12 @@ public void OnPluginStart()
 	HookEvent("round_end", Event_PreRoundEnd, EventHookMode_Pre);
 	HookEvent("player_death", Event_PrePlayerDeath, EventHookMode_Pre);
 	HookEvent("player_spawn", Event_PlayerSpawn);
-	
+
+	HookEntityOutput("func_door", "OnBlockedClosing", OnDoorBlocked);
+	HookEntityOutput("func_door_rotating", "OnBlockedClosing", OnDoorBlocked);
+
+	HookUserMessage(GetUserMessageId("TextMsg"), RemoveCashRewardMessage, true);
+		
 	AddNormalSoundHook(OnNormalSoundPlayed);
 	
 	CreateTimer(g_cChatAdvertsInterval.FloatValue, Timer_ChatAdvert, _, TIMER_REPEAT);
@@ -85,16 +90,10 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	return APLRes_Success;
 }
 
-
 public int Native_IsGhost(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1);
 	return (g_bIsGhost[client] || g_bSpawning[client]);
-}
-
-public void OnMapStart()
-{
-	PrecacheModel("models/props/cs_militia/bottle02.mdl");
 }
 
 public void OnClientPutInServer(int client)
@@ -111,11 +110,6 @@ public void OnClientPutInServer(int client)
 		g_fSaveLocationPos[client] = view_as<float>( { -1.0, -1.0, -1.0 } );
 		g_fSaveLocationAng[client] = view_as<float>( { -1.0, -1.0, -1.0 } );
 		g_fSaveLocationVel[client] = view_as<float>( { -1.0, -1.0, -1.0 } );
-		
-		if (g_cGhostBhop.BoolValue)
-			SendConVarValue(client, sv_autobunnyhopping, "0");
-		if (g_cGhostSpeed.BoolValue)
-			SendConVarValue(client, sv_enablebunnyhopping, "0");
 		
 		SDKHook(client, SDKHook_PreThink, Hook_PreThink);
 		SDKHook(client, SDKHook_WeaponCanUse, Hook_WeaponCanUse);
@@ -250,7 +244,6 @@ public Action Event_PrePlayerDeath(Event event, const char[] name, bool dontBroa
 		g_bBhopEnabled[client] = false;
 		g_bSpeedEnabled[client] = false;
 		g_bNoclipEnabled[client] = false;
-		
 		CreateTimer(1.0, Timer_ResetValue, userid);
 		
 		int ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
@@ -281,9 +274,7 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 		{
 			g_bSpeedEnabled[client] = false;
 			SendConVarValue(client, sv_enablebunnyhopping, "0");
-
 		}
-		
 		if (g_cGhostBhop.BoolValue)
 		{
 			g_bBhopEnabled[client] = false;
@@ -314,7 +305,6 @@ public Action Event_PreRoundStart(Event event, const char[] name, bool dontBroad
 			SDKHookEx(ent, SDKHook_StartTouch, RespawnOnTouch);
 			SDKHookEx(ent, SDKHook_Touch, RespawnOnTouch);
 		}
-		
 	}
 	
 	char otherEntities[][] =  { "func_breakable", "func_breakable_surf", "func_button", "trigger_hurt", "trigger_multiple", "trigger_once" };
@@ -327,7 +317,6 @@ public Action Event_PreRoundStart(Event event, const char[] name, bool dontBroad
 			SDKHookEx(ent, SDKHook_StartTouch, BlockOnTouch);
 			SDKHookEx(ent, SDKHook_Touch, BlockOnTouch);
 		}
-		
 	}
 	
 	return Plugin_Continue;
@@ -376,7 +365,7 @@ public Action RespawnOnTouch(int entity, int client)
 		CGOPrintToChat(client, "%t %t", "Tag", "RespawnForTouching", classname);
 		return Plugin_Handled;
 	}
-	
+		
 	return Plugin_Continue;
 }
 
@@ -419,6 +408,7 @@ public Action Hook_PreThink(int client)
 {
 	if (g_cGhostBhop.BoolValue) 
 		SetConVarBool(sv_autobunnyhopping, g_bBhopEnabled[client]);
+
 	if (g_cGhostSpeed.BoolValue)
 		SetConVarBool(sv_enablebunnyhopping, g_bSpeedEnabled[client]);
 	
@@ -431,6 +421,54 @@ public Action Hook_WeaponCanUse(int client, int weapon)
 		return Plugin_Handled;
 	
 	return Plugin_Continue;
+}
+
+public Action OnDoorBlocked(const char[] output, int caller, int activator, float delay)	
+{	
+	if (g_bIsGhost[activator])	
+	{	
+		char classname[64], targetname[64];	
+		GetEntPropString(caller, Prop_Send, "m_iName", targetname, sizeof(targetname));	
+		GetEntityClassname(caller, classname, sizeof(classname));	
+		DataPack pack = new DataPack();	
+		CreateDataTimer(0.1, Timer_ForceClose, pack);	
+		pack.WriteCell(activator);	
+		pack.WriteCell(caller);	
+		pack.WriteString(classname);	
+		pack.WriteString(targetname);	
+		pack.WriteString(output);	
+	}	
+}	
+public Action Timer_ForceClose(Handle timer, DataPack pack)	
+{	
+	pack.Reset();	
+	int client = pack.ReadCell();	
+	int entity = pack.ReadCell();	
+	char classname[64], targetname[64], output[64];	
+	pack.ReadString(classname, sizeof(classname));	
+	pack.ReadString(targetname, sizeof(targetname));	
+	pack.ReadString(output, sizeof(output));	
+	if (StrEqual(targetname, ""))	
+	{	
+		AcceptEntityInput(entity, "Close");	
+		CGOPrintToChat(client, "%t %t", "Tag", "RespawnForBlockingDoor");
+		Ghost(client);	
+	}	
+	else	
+	{	
+		int ent = -1;	
+		while ((ent = FindEntityByClassname(ent, "func_door")) != -1)	
+		{	
+			char buffer[64];	
+			GetEntPropString(ent, Prop_Send, "m_iName", buffer, sizeof(buffer));	
+			if (StrEqual(targetname, buffer))	
+			{	
+				AcceptEntityInput(ent, "Close");	
+				CGOPrintToChat(client, "%t %t", "Tag", "RespawnForBlockingDoor");
+				Ghost(client);	
+			}	
+		}	
+	}	
 }
 
 // Plugin Functions
@@ -454,18 +492,16 @@ public void Ghost(int client)
 			RemoveEdict(weaponIndex);
 		}
 	}
-	
-	// TODO: Enable speed
+
 	if (g_cGhostBhop.BoolValue)
 	{
 		g_bBhopEnabled[client] = true;
 		SendConVarValue(client, sv_autobunnyhopping, "1");
 	}
-	
+
 	// Make player turn into a "ghost"
-	SetEntityModel(client, "models/props/cs_militia/bottle02.mdl"); // Set the playermodel to a small item in order to not block buttons, knife swings or bullets.
 	SetEntProp(client, Prop_Send, "m_lifeState", 1);
-	SetEntData(client, FindSendPropInfo("CBaseEntity", "m_CollisionGroup"), 2, 4, true);
+	SetEntData(client, FindSendPropInfo("CBaseEntity", "m_nSolidType"), 5, 4, true); // SOLID_CUSTOM
 	SetEntProp(client, Prop_Data, "m_ArmorValue", 0);
 	SetEntProp(client, Prop_Send, "m_bHasDefuser", 0);
 	
