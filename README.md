@@ -1,6 +1,4 @@
 # Ghost
-Improved version of Pyro_'s Redie.
-
 Alliedmods Thread: https://forums.alliedmods.net/showthread.php?p=2673662
 
 Video Demo: <a href="http://www.youtube.com/watch?feature=player_embedded&v=8T07u3TYINM
@@ -13,13 +11,16 @@ alt="Ghost Test Video" width="240" height="180" border="10" /></a>
 * Checkpoint teleports
 * Working Unghost / Unredie
 * Working trigger_teleports
-* Players have access to a menu to toggle their own settings as a ghost. [\[IMG\]](https://i.imgur.com/AcEPss2.png)
+* Players have access to a menu to toggle their own settings as a ghost. [\[IMG\]](https://i.imgur.com/QOz3Gwt.png)
+* English, Russian, and Portuguese translations 
 
 ## Commands
 * sm_ghost / sm_redie -> Turn into a ghost after you die
 * sm_unghost / sm_unredie -> Return back to spectator
+* sm_rmenu -> Reopen Ghost Menu
 
 ## ConVars
+**Config File is located in `csgo/cfg/sourcemod/ghost.cfg`**
 * `sm_ghost_enabled 1|0 "Set whether Ghost is enabled on the server."`
 * `sm_ghost_bhop 1|0 "Set whether ghosts can autobhop. (sv_autobunnyhopping)"`
 * `sm_ghost_speed 1|0 "Set whether ghosts can use unlimited speed (sv_enablebunnyhopping)"`

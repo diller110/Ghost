@@ -1,25 +1,50 @@
+/**
+ * Ghost - Allow players to respawn as Ghost when they die.
+ *
+ * Copyright (C) 2020  Extacy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include <sourcemod>
 #include <cstrike>
 #include <sdktools>
 #include <sdkhooks>
-#include <csgo_colors>
+#include <multicolors>
 
 #pragma newdecls required
 #pragma semicolon 1
 
 // ConVars
 ConVar g_cPluginEnabled;
+ConVar g_cUnghostEnabled;
+
+ConVar g_cBhopServer;
+ConVar g_cSpeedServer;
+
 ConVar g_cGhostBhop;
 ConVar g_cGhostSpeed;
 ConVar g_cGhostNoclip;
+
 ConVar g_cChatAdverts;
 ConVar g_cChatAdvertsInterval;
+
 ConVar sv_autobunnyhopping;
 ConVar sv_enablebunnyhopping;
 
 // Plugin Variables
 bool g_bIsGhost[MAXPLAYERS + 1]; // Current players that are a Ghost
-bool g_bTakeWeapons[MAXPLAYERS + 1]; // Allow take weapons or not 
 bool g_bSpawning[MAXPLAYERS + 1]; // Ghosts that are spawning in
 bool g_bBhopEnabled[MAXPLAYERS + 1]; // Ghosts that have Bhop Enabled.
 bool g_bSpeedEnabled[MAXPLAYERS + 1]; // Ghosts with unlimited speed enabled (sv_enablebunnyhopping)
@@ -30,33 +55,36 @@ int g_iLastUsedCommand[MAXPLAYERS + 1]; // Array of clients and the time they la
 int g_iCoolDownTimer = 5; // How long, in seconds, should the cooldown between commands be
 int g_iLastButtons[MAXPLAYERS + 1]; // Last used button (+use, +reload etc) for ghosts. - Used for noclip
 
-float g_fSaveLocationPos[MAXPLAYERS + 1][3]; // Save position location for ghosts
-float g_fSaveLocationAng[MAXPLAYERS + 1][3]; // Save position angles for ghosts
-float g_fSaveLocationVel[MAXPLAYERS + 1][3]; // Save position velocity for ghosts
-
 public Plugin myinfo = 
 {
 	name = "Ghost", 
 	author = "Extacy", 
-	description = "Improved Redie.", 
-	version = "1.0.1", 
-	url = "https://steamcommunity.com/profiles/76561198183032322"
+	description = "Allow players to respawn as Ghost when they die.", 
+	version = "1.0", 
+	url = "https://github.com/Extacy/Ghost/"
 };
 
 public void OnPluginStart()
 {
+	AutoExecConfig(true, "ghost");
+
+	LoadTranslations("ghost.phrases");
+
 	g_cPluginEnabled = CreateConVar("sm_ghost_enabled", "1", "Set whether Ghost is enabled on the server.");
+	g_cUnghostEnabled = CreateConVar("sm_ghost_unghost_enabled", "1", "Set whether !unghost and !unredie is enabled on the server.");
+	
+	g_cBhopServer = CreateConVar("sm_ghost_bhop_server", "0", "If you have sv_autobunnyhopping 1 set this to 1. (Resets this convar on spawn)");
+	g_cSpeedServer = CreateConVar("sm_ghost_speed_server", "0", "If you have sv_enablebunnyhopping 1 set this to 1. (Resets this convar on spawn)");
+	
 	g_cGhostBhop = CreateConVar("sm_ghost_bhop", "1", "Set whether ghosts can autobhop.");
 	g_cGhostSpeed = CreateConVar("sm_ghost_speed", "1", "Set whether ghosts can use unlimited speed (sv_enablebunnyhopping)");
 	g_cGhostNoclip = CreateConVar("sm_ghost_noclip", "1", "Set whether ghosts can noclip.");
+
 	g_cChatAdverts = CreateConVar("sm_ghost_adverts", "1", "Set whether chat adverts are enabled.");
 	g_cChatAdvertsInterval = CreateConVar("sm_ghost_adverts_interval", "120.0", "Interval (in seconds) of chat adverts.");
 	
 	sv_autobunnyhopping = FindConVar("sv_autobunnyhopping");
 	sv_enablebunnyhopping = FindConVar("sv_enablebunnyhopping");
-	
-	LoadTranslations("core.phrases.txt");
-	LoadTranslations("ghost.phrases.txt");
 	
 	HookEvent("round_start", Event_PreRoundStart, EventHookMode_Pre);
 	HookEvent("round_end", Event_PreRoundEnd, EventHookMode_Pre);
@@ -102,16 +130,11 @@ public void OnClientPutInServer(int client)
 	{
 		g_iLastUsedCommand[client] = 0;
 		g_bIsGhost[client] = false;
-		g_bTakeWeapons[client] = true;
 		g_bSpawning[client] = false;
 		g_bBhopEnabled[client] = false;
 		g_bSpeedEnabled[client] = false;
 		g_bNoclipEnabled[client] = false;
-		g_fSaveLocationPos[client] = view_as<float>( { -1.0, -1.0, -1.0 } );
-		g_fSaveLocationAng[client] = view_as<float>( { -1.0, -1.0, -1.0 } );
-		g_fSaveLocationVel[client] = view_as<float>( { -1.0, -1.0, -1.0 } );
 		
-		SDKHook(client, SDKHook_PreThink, Hook_PreThink);
 		SDKHook(client, SDKHook_WeaponCanUse, Hook_WeaponCanUse);
 	}
 }
@@ -131,9 +154,9 @@ public Action RemoveCashRewardMessage(UserMsg msg_id, BfRead msg, const int[] pl
 	char buffer[64];
 	PbReadString(msg, "params", buffer, sizeof(buffer), 0);
 	
-	if (StrEqual(buffer, "#Player_Cash_Award_ExplainSuicide_YouGotCash") || 
-		StrEqual(buffer, "#Player_Cash_Award_ExplainSuicide_TeammateGotCash") || 
-		StrEqual(buffer, "#Player_Cash_Award_ExplainSuicide_EnemyGotCash"))
+	if (StrEqual(buffer, "#Player_Cash_Award_ExplainSuicide_YouGotCash") 
+		|| StrEqual(buffer, "#Player_Cash_Award_ExplainSuicide_TeammateGotCash")
+		|| StrEqual(buffer, "#Player_Cash_Award_ExplainSuicide_EnemyGotCash"))
 	{
 		return Plugin_Handled;
 	}
@@ -146,38 +169,38 @@ public Action CMD_Ghost(int client, int args)
 {
 	if (!g_cPluginEnabled.BoolValue)
 	{
-		CGOPrintToChat(client, "%t %t", "Tag", "PluginDisabled");
+		CPrintToChat(client, "%t %t", "ChatTag", "GhostDisabled");
 		return Plugin_Handled;
 	}
 	
 	if (g_bPluginBlocked)
 	{
-		CGOPrintToChat(client, "%t %t", "Tag", "WaitRoundBegin");
+		CPrintToChat(client, "%t %t", "ChatTag", "WaitForNextRound");
 		return Plugin_Handled;
 	}
 	
 	if (GameRules_GetProp("m_bWarmupPeriod"))
 	{
-		CGOPrintToChat(client, "%t %t", "Tag", "WaitRoundWarmup");
+		CPrintToChat(client, "%t %t", "ChatTag", "WarmupDisabled");
 		return Plugin_Handled;
 	}
 	
 	if (!IsValidClient(client))
 	{
-		ReplyToCommand(client, "%t %t", "Tag", "MustBeValid");
+		CPrintToChat(client, "%t %t", "ChatTag", "NotValidClient");
 		return Plugin_Handled;
 	}
 	
 	if (IsPlayerAlive(client))
 	{
-		CGOPrintToChat(client, "%t %t", "Tag", "MustBeDead");
+		CPrintToChat(client, "%t %t", "ChatTag", "NotDead");
 		return Plugin_Handled;
 	}
 	
 	int time = GetTime();
 	if (time - g_iLastUsedCommand[client] < g_iCoolDownTimer)
 	{
-		CGOPrintToChat(client, "%t %t", "Tag", "TooManyCommands", g_iCoolDownTimer - (time - g_iLastUsedCommand[client]));
+		CPrintToChat(client, "%t %t", "ChatTag", "CommandCooldown", g_iCoolDownTimer - (time - g_iLastUsedCommand[client]));
 		return Plugin_Handled;
 	}
 	
@@ -191,26 +214,32 @@ public Action CMD_Unghost(int client, int args)
 {
 	if (!g_cPluginEnabled.BoolValue)
 	{
-		CGOPrintToChat(client, "%t %t", "Tag", "PluginDisabled");
+		CPrintToChat(client, "%t %t", "ChatTag", "GhostDisabled");
+		return Plugin_Handled;
+	}
+	
+	if (!g_cUnghostEnabled.BoolValue)
+	{
+		CPrintToChat(client, "%t %t", "ChatTag", "UnghostDisabled");
 		return Plugin_Handled;
 	}
 	
 	if (!g_bIsGhost[client])
 	{
-		CGOPrintToChat(client, "%t %t", "Tag", "MustBeGhost");
+		CPrintToChat(client, "%t %t", "ChatTag", "NotGhost");
 		return Plugin_Handled;
 	}
 	
 	if (g_bPluginBlocked)
 	{
-		CGOPrintToChat(client, "%t %t", "Tag", "WaitRoundBegin");
+		CPrintToChat(client, "%t %t", "ChatTag", "WaitForNextRound");
 		return Plugin_Handled;
 	}
 	
 	int time = GetTime();
 	if (time - g_iLastUsedCommand[client] < g_iCoolDownTimer)
 	{
-		CGOPrintToChat(client, "%t %t", "Tag", "TooManyCommands", g_iCoolDownTimer - (time - g_iLastUsedCommand[client]));
+		CPrintToChat(client, "%t %t", "ChatTag", "CommandCooldown", g_iCoolDownTimer - (time - g_iLastUsedCommand[client]));
 		return Plugin_Handled;
 	}
 	
@@ -221,15 +250,14 @@ public Action CMD_Unghost(int client, int args)
 
 public Action CMD_GhostMenu(int client, int args)
 {
-	if (g_bIsGhost[client])
+	if (!g_bIsGhost[client])
 	{
-		ShowPlayerMenu(client);
-		//ReplyToCommand(client, "%s Opening Menu...", CHAT_PREFIX);  // ???
+		CPrintToChat(client, "%t %t", "ChatTag", "NotGhost");
+		return Plugin_Handled;
 	}
-	else
-	{
-		CGOPrintToChat(client, "%t %t", "Tag", "MustBeGhost");
-	}
+
+	ShowPlayerMenu(client);
+	CPrintToChat(client, "%t %t", "ChatTag", "OpeningMenu");
 	return Plugin_Handled;
 }
 
@@ -258,7 +286,9 @@ public Action Event_PrePlayerDeath(Event event, const char[] name, bool dontBroa
 
 		return Plugin_Handled;
 	}
-	CGOPrintToChat(client, "%t %t", "Tag", "TypeGhostToRespawn");
+	
+	CPrintToChat(client, "%t %t", "ChatTag", "DeathMsg");
+
 	return Plugin_Continue;
 }
 
@@ -269,19 +299,28 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 	if (IsValidClient(client))
 	{
 		g_bIsGhost[client] = false;
-		g_bTakeWeapons[client] = true;
 		g_bNoclipEnabled[client] = false;
 
-		if (g_cGhostSpeed.BoolValue)
+		if (g_cBhopServer.BoolValue)
 		{
-			g_bSpeedEnabled[client] = false;
-			SendConVarValue(client, sv_enablebunnyhopping, "0");
+			g_bSpeedEnabled[client] = true;
+			sv_autobunnyhopping.ReplicateToClient(client, "1");
 		}
-
-		if (g_cGhostBhop.BoolValue)
+		else
 		{
 			g_bBhopEnabled[client] = false;
-			SendConVarValue(client, sv_autobunnyhopping, "0");
+			sv_autobunnyhopping.ReplicateToClient(client, "0");
+		}
+
+		if (g_cSpeedServer.BoolValue)
+		{
+			g_bSpeedEnabled[client] = true;
+			sv_enablebunnyhopping.ReplicateToClient(client, "1");
+		}
+		else
+		{
+			g_bSpeedEnabled[client] = false;
+			sv_enablebunnyhopping.ReplicateToClient(client, "0");
 		}
 	}
 }
@@ -350,7 +389,7 @@ public Action Timer_ResetValue(Handle timer, any userid)
 public Action Timer_ChatAdvert(Handle timer)
 {
 	if (g_cChatAdverts.BoolValue)
-		CGOPrintToChatAll("%t %t", "Tag", "Advert");
+		CPrintToChatAll("%t %t", "ChatTag", "Advert");
 	
 	return Plugin_Continue;
 }
@@ -365,7 +404,7 @@ public Action RespawnOnTouch(int entity, int client)
 		char classname[64];
 		GetEntityClassname(entity, classname, sizeof(classname));
 		
-		CGOPrintToChat(client, "%t %t", "Tag", "RespawnForTouching", classname);
+		CPrintToChat(client, "%t %t", "ChatTag", "RespawnOnTouch", classname);
 		return Plugin_Handled;
 	}
 		
@@ -406,72 +445,64 @@ public Action FakeTriggerTeleport(int entity, int client)
 	return Plugin_Continue;
 }
 
-// Auto bhop / Unlimited Speed
-public Action Hook_PreThink(int client)
-{
-	if (g_cGhostBhop.BoolValue) 
-		SetConVarBool(sv_autobunnyhopping, g_bBhopEnabled[client]);
-
-	if (g_cGhostSpeed.BoolValue)
-		SetConVarBool(sv_enablebunnyhopping, g_bSpeedEnabled[client]);
-	
-	return Plugin_Continue;
-}
-
 public Action Hook_WeaponCanUse(int client, int weapon)
 {
-	if (g_bIsGhost[client] || !g_bTakeWeapons[client])
+	if (g_bIsGhost[client])
 		return Plugin_Handled;
 	
 	return Plugin_Continue;
 }
 
-public Action OnDoorBlocked(const char[] output, int caller, int activator, float delay)	
-{	
-	if (g_bIsGhost[activator])	
-	{	
-		char classname[64], targetname[64];	
-		GetEntPropString(caller, Prop_Send, "m_iName", targetname, sizeof(targetname));	
-		GetEntityClassname(caller, classname, sizeof(classname));	
-		DataPack pack = new DataPack();	
-		CreateDataTimer(0.1, Timer_ForceClose, pack);	
-		pack.WriteCell(activator);	
-		pack.WriteCell(caller);	
-		pack.WriteString(classname);	
-		pack.WriteString(targetname);	
-		pack.WriteString(output);	
-	}	
-}	
-public Action Timer_ForceClose(Handle timer, DataPack pack)	
-{	
-	pack.Reset();	
-	int client = pack.ReadCell();	
-	int entity = pack.ReadCell();	
-	char classname[64], targetname[64], output[64];	
-	pack.ReadString(classname, sizeof(classname));	
-	pack.ReadString(targetname, sizeof(targetname));	
-	pack.ReadString(output, sizeof(output));	
-	if (StrEqual(targetname, ""))	
-	{	
-		AcceptEntityInput(entity, "Close");	
-		CGOPrintToChat(client, "%t %t", "Tag", "RespawnForBlockingDoor");
-		Ghost(client);	
-	}	
-	else	
-	{	
-		int ent = -1;	
-		while ((ent = FindEntityByClassname(ent, "func_door")) != -1)	
-		{	
-			char buffer[64];	
-			GetEntPropString(ent, Prop_Send, "m_iName", buffer, sizeof(buffer));	
-			if (StrEqual(targetname, buffer))	
-			{	
-				AcceptEntityInput(ent, "Close");	
-				CGOPrintToChat(client, "%t %t", "Tag", "RespawnForBlockingDoor");
-				Ghost(client);	
-			}	
-		}	
-	}	
+public Action OnDoorBlocked(const char[] output, int caller, int activator, float delay)
+{
+	if (g_bIsGhost[activator])
+	{
+		char classname[64], targetname[64];
+		GetEntPropString(caller, Prop_Send, "m_iName", targetname, sizeof(targetname));
+		GetEntityClassname(caller, classname, sizeof(classname));
+
+		DataPack pack = new DataPack();
+		CreateDataTimer(0.1, Timer_ForceClose, pack);
+		pack.WriteCell(activator);
+		pack.WriteCell(caller);
+		pack.WriteString(classname);
+		pack.WriteString(targetname);
+		pack.WriteString(output);
+	}
+}
+
+public Action Timer_ForceClose(Handle timer, DataPack pack)
+{
+	pack.Reset();
+	int client = pack.ReadCell();
+	int entity = pack.ReadCell();
+	char classname[64], targetname[64], output[64];
+	pack.ReadString(classname, sizeof(classname));
+	pack.ReadString(targetname, sizeof(targetname));
+	pack.ReadString(output, sizeof(output));
+
+	if (StrEqual(targetname, ""))
+	{
+		AcceptEntityInput(entity, "Close");
+		CPrintToChat(client, "%t %t", "ChatTag", "RespawnOnBlock");
+
+		Ghost(client);
+	}
+	else
+	{
+		int ent = -1;
+		while ((ent = FindEntityByClassname(ent, "func_door")) != -1)
+		{
+			char buffer[64];
+			GetEntPropString(ent, Prop_Send, "m_iName", buffer, sizeof(buffer));
+			if (StrEqual(targetname, buffer))
+			{
+				AcceptEntityInput(ent, "Close");
+				CPrintToChat(client, "%t %t", "ChatTag", "RespawnOnBlock");
+				Ghost(client);
+			}
+		}
+	}
 }
 
 // Plugin Functions
@@ -496,19 +527,13 @@ public void Ghost(int client)
 		}
 	}
 
-	if (g_cGhostBhop.BoolValue)
-	{
-		g_bBhopEnabled[client] = true;
-		SendConVarValue(client, sv_autobunnyhopping, "1");
-	}
-
 	// Make player turn into a "ghost"
 	SetEntProp(client, Prop_Send, "m_lifeState", 1);
 	SetEntData(client, FindSendPropInfo("CBaseEntity", "m_nSolidType"), 5, 4, true); // SOLID_CUSTOM
 	SetEntProp(client, Prop_Data, "m_ArmorValue", 0);
 	SetEntProp(client, Prop_Send, "m_bHasDefuser", 0);
 	
-	CGOPrintToChat(client, "%t %t", "Tag", "RespawnedAsGhost");
+	CPrintToChat(client, "%t %t", "ChatTag", "Ghost");
 }
 
 public void Unghost(int client)
@@ -520,7 +545,7 @@ public void Unghost(int client)
 		SetEntProp(client, Prop_Data, "m_iDeaths", GetClientDeaths(client) - 1);
 		ForcePlayerSuicide(client);
 		
-		CGOPrintToChat(client, "%t %t", "Tag", "ReturnedToSpectator");
+		CPrintToChat(client, "%t %t", "ChatTag", "Unghost");
 	}
 }
 
@@ -531,29 +556,25 @@ public int PlayerMenuHandler(Menu menu, MenuAction action, int param1, int param
 	{
 		if (g_bIsGhost[param1])
 		{
+			static float vSavedLocation[MAXPLAYERS + 1][3];
+
 			switch (param2)
 			{
 				case 1:
 				{
-					GetClientAbsOrigin(param1, g_fSaveLocationPos[param1]);
-					GetClientEyeAngles(param1, g_fSaveLocationAng[param1]);
-					g_fSaveLocationVel[param1][0] = GetEntPropFloat(param1, Prop_Send, "m_vecVelocity[0]");
-					g_fSaveLocationVel[param1][1] = GetEntPropFloat(param1, Prop_Send, "m_vecVelocity[1]");
-					g_fSaveLocationVel[param1][2] = GetEntPropFloat(param1, Prop_Send, "m_vecVelocity[2]");
-					CGOPrintToChat(param1, "%t %t", "Tag", "LocationSaved");
+					GetClientAbsOrigin(param1, vSavedLocation[param1]);
+					CPrintToChat(param1, "%t %t", "ChatTag", "SavedLocation");
 				}
 				case 2:
 				{
-					if (!(g_fSaveLocationPos[param1][0] == -1.0 && 
-							g_fSaveLocationPos[param1][1] == -1.0 && 
-							g_fSaveLocationPos[param1][2] == -1.0))
+					if (IsVectorZero(vSavedLocation[param1]))
 					{
-						TeleportEntity(param1, g_fSaveLocationPos[param1], g_fSaveLocationAng[param1], g_fSaveLocationVel[param1]);
-						CGOPrintToChat(param1, "%t %t", "Tag", "TeleportedToSavedLocation");
+						CPrintToChat(param1, "%t %t", "ChatTag", "SaveLocationFirst");
 					}
 					else
 					{
-						CGOPrintToChat(param1, "%t %t", "Tag", "SaveLocationFirst");
+						TeleportEntity(param1, vSavedLocation[param1], NULL_VECTOR, view_as<float>({ -1.0, -1.0, -1.0 }));
+						CPrintToChat(param1, "%t %t", "ChatTag", "TeleportedToLocation");
 					}
 				}
 				case 3:
@@ -564,13 +585,13 @@ public int PlayerMenuHandler(Menu menu, MenuAction action, int param1, int param
 						{
 							SetEntityMoveType(param1, MOVETYPE_WALK);
 							g_bNoclipEnabled[param1] = false;
-							CGOPrintToChat(param1, "%t %t", "Tag", "DisabledNoclip");
+							CPrintToChat(param1, "%t %t", "ChatTag", "DisabledNoclip");
 						}
 						else
 						{
 							SetEntityMoveType(param1, MOVETYPE_NOCLIP);
 							g_bNoclipEnabled[param1] = true;
-							CGOPrintToChat(param1, "%t %t", "Tag", "EnabledNoclip");
+							CPrintToChat(param1, "%t %t", "ChatTag", "EnabledNoclip");
 						}
 					}
 					else
@@ -585,14 +606,14 @@ public int PlayerMenuHandler(Menu menu, MenuAction action, int param1, int param
 						if (g_bBhopEnabled[param1])
 						{
 							g_bBhopEnabled[param1] = false;
-							SendConVarValue(param1, sv_autobunnyhopping, "0");
-							CGOPrintToChat(param1, "%t %t", "Tag", "DisabledBhop");
+							sv_autobunnyhopping.ReplicateToClient(param1, "0");
+							CPrintToChat(param1, "%t %t", "ChatTag", "DisabledBhop");
 						}
 						else
 						{
 							g_bBhopEnabled[param1] = true;
-							SendConVarValue(param1, sv_autobunnyhopping, "1");
-							CGOPrintToChat(param1, "%t %t", "Tag", "EnabledBhop");
+							sv_autobunnyhopping.ReplicateToClient(param1, "1");
+							CPrintToChat(param1, "%t %t", "ChatTag", "EnabledBhop");
 						}
 					}
 				}
@@ -603,14 +624,14 @@ public int PlayerMenuHandler(Menu menu, MenuAction action, int param1, int param
 						if (g_bSpeedEnabled[param1])
 						{
 							g_bSpeedEnabled[param1] = false;
-							SendConVarValue(param1, sv_enablebunnyhopping, "0");
-							CGOPrintToChat(param1, "%t %t", "Tag", "EnabledSpeed");
+							sv_enablebunnyhopping.ReplicateToClient(param1, "0");
+							CPrintToChat(param1, "%t %t", "ChatTag", "DisabledSpeed");
 						}
 						else
 						{
 							g_bSpeedEnabled[param1] = true;
-							SendConVarValue(param1, sv_enablebunnyhopping, "1");
-							CGOPrintToChat(param1, "%t %t", "Tag", "EnabledsSpeed");
+							sv_enablebunnyhopping.ReplicateToClient(param1, "1");
+							CPrintToChat(param1, "%t %t", "ChatTag", "EnabledSpeed");
 						}
 					}
 				}
@@ -635,50 +656,62 @@ public int PlayerMenuHandler(Menu menu, MenuAction action, int param1, int param
 public void ShowPlayerMenu(int client)
 {
 	Panel panel = CreatePanel();
-	static char buff[64];
-	Format(buff, sizeof(buff), "%t [sm_rmenu]", "Title");
-	panel.SetTitle(buff);
 	
-	Format(buff, sizeof(buff), "%t", "Checkpoint");
-	panel.DrawItem(buff);
-	Format(buff, sizeof(buff), "%t", "Teleport");
-	panel.DrawItem(buff);
+	char buffer[32];
+
+	Format(buffer, sizeof(buffer), "%T", "MenuTitle", client);
+	panel.SetTitle(buffer);
+
+	Format(buffer, sizeof(buffer), "%T", "MenuItemCheckpoint", client);
+	panel.DrawItem(buffer);
+
+	Format(buffer, sizeof(buffer), "%T", "MenuItemTeleport", client);
+	panel.DrawItem(buffer);
 	
 	panel.DrawText(" ");
 	if (g_cGhostNoclip.BoolValue)
 	{
 		if (g_bNoclipEnabled[client])
-			panel.DrawItem("[✔] Noclip (R)");
+			Format(buffer, sizeof(buffer), "[✔] %T", "MenuItemNoclip", client);
 		else
-			panel.DrawItem("[X] Noclip (R)");
+			Format(buffer, sizeof(buffer), "[X] %T", "MenuItemNoclip", client);
+		
+		panel.DrawItem(buffer);
 	}
 	else
 	{
-		panel.DrawItem("[X] Noclip (Disabled)", ITEMDRAW_DISABLED);
+		Format(buffer, sizeof(buffer), "[X] %T", "MenuItemNoclipDisabled", client);
+		panel.DrawItem(buffer, ITEMDRAW_DISABLED);
 	}
 	
 	if (g_cGhostBhop.BoolValue)
 	{
 		if (g_bBhopEnabled[client])
-			panel.DrawItem("[✔] Auto Bhop");
+			Format(buffer, sizeof(buffer), "[✔] %T", "MenuItemBhop", client);
 		else
-			panel.DrawItem("[X] Auto Bhop");
+			Format(buffer, sizeof(buffer), "[X] %T", "MenuItemBhop", client);
+		
+		panel.DrawItem(buffer);
 	}
 	else
 	{
-		panel.DrawItem("[X] Auto Bhop (Disabled)", ITEMDRAW_DISABLED);
+		Format(buffer, sizeof(buffer), "[X] %T", "MenuItemBhopDisabled", client);
+		panel.DrawItem(buffer, ITEMDRAW_DISABLED);
 	}
 	
 	if (g_cGhostSpeed.BoolValue)
 	{
 		if (g_bSpeedEnabled[client])
-			panel.DrawItem("[✔] Speed");
+			Format(buffer, sizeof(buffer), "[✔] %T", "MenuItemSpeed", client);
 		else
-			panel.DrawItem("[X] Speed");
+			Format(buffer, sizeof(buffer), "[X] %T", "MenuItemSpeed", client);
+		
+		panel.DrawItem(buffer);
 	}
 	else
 	{
-		panel.DrawItem("[X] Speed (Disabled)", ITEMDRAW_DISABLED);
+		Format(buffer, sizeof(buffer), "[X] %T", "MenuItemSpeedDisabled", client);
+		panel.DrawItem(buffer, ITEMDRAW_DISABLED);
 	}
 	
 	panel.DrawItem("", ITEMDRAW_NOTEXT);
@@ -686,8 +719,8 @@ public void ShowPlayerMenu(int client)
 	panel.DrawItem("", ITEMDRAW_NOTEXT);
 	panel.DrawText(" ");
 	
-	Format(buff, sizeof(buff), "%t", "Exit");
-	panel.DrawItem(buff);
+	Format(buffer, sizeof(buffer), "%T", "MenuItemExit", client);
+	panel.DrawItem(buffer);
 	panel.Send(client, PlayerMenuHandler, MENU_TIME_FOREVER);
 	delete panel;
 }
@@ -716,6 +749,19 @@ public Action OnPlayerRunCmd(int client, int & buttons, int & impulse, float vel
 			}
 			g_iLastButtons[client] = buttons;
 		}
+
+		if (g_cGhostBhop.BoolValue && g_bBhopEnabled[client])
+		{
+			//Based off AbNeR's bhop code
+			if(buttons & IN_JUMP)
+			{
+				if(GetEntProp(client, Prop_Data, "m_nWaterLevel") <= 1 && !(GetEntityMoveType(client) & MOVETYPE_LADDER) && !(GetEntityFlags(client) & FL_ONGROUND))
+				{
+					SetEntPropFloat(client, Prop_Send, "m_flStamina", 0.0);
+					buttons &= ~IN_JUMP;
+				}
+			}
+		}
 	}
 	
 	return Plugin_Continue;
@@ -724,10 +770,15 @@ public Action OnPlayerRunCmd(int client, int & buttons, int & impulse, float vel
 // Stocks
 stock bool IsValidClient(int client)
 {
-	if (client <= 0)return false;
-	if (client > MaxClients)return false;
-	if (!IsClientConnected(client))return false;
-	if (IsFakeClient(client))return false;
-	if (IsClientSourceTV(client))return false;
+	if (client <= 0) return false;
+	if (client > MaxClients) return false;
+	if (!IsClientConnected(client)) return false;
+	if (IsFakeClient(client)) return false;
+	if (IsClientSourceTV(client)) return false;
 	return IsClientInGame(client);
-} 
+}
+
+stock bool IsVectorZero(float vec[3])
+{
+	return (vec[0] == 0.0 && vec[1] == 0.0 && vec[2] == 0.0);
+}
